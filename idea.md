@@ -51,6 +51,8 @@ No more clients should be accepted.
 | Server                 | Client                       |
 |------------------------|------------------------------|
 |                        | `initial_position:xxx,yyy\|` |
+| `id`                   |                              |
+|                        | `id`                         |
 | `start\|`              |                              |
 | `id;xxx,yyy:xxx,yyy\|` | `xxx,yyy\|`                  |
 | `id;xxx,yyy:xxx,yyy\|` | `xxx,yyy\|`                  |
