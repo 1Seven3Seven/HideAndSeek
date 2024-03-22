@@ -30,7 +30,8 @@ If one connected client, the server sends the information in the following forma
 If multiple clients are connected, then each entry is seperated by a colon:
 `id;xxx,yyy;xxx,yyy:id;xxx,yyy;xxx,yyy|`.
 
-A client should consider the target position of every entry, bar itself, to be the actual position of that player.
+The first entry for a particular client is the corresponding enemy position, the second entry is the target position.  
+The target position should be considered the player position for every client bar itself.
 
 ### Termination
 
