@@ -10,87 +10,79 @@ from get_my_ip import get_my_ip
 ENCODING = "UTF-8"
 
 
-class EnemyInformation:
-    def __init__(self, my_socket: socket.socket, initial_x: int, initial_y: int):
-        self.enemy_x: int = initial_x
-        self.enemy_y: int = initial_y
+class Client:
+    def __init__(self, initial_x: int, initial_y: int, my_id: int, my_socket: socket.socket):
+        self.x: int = initial_x
+        self.y: int = initial_y
 
-        self.target_x: int = initial_x
-        self.target_y: int = initial_y
+        self.id: int = my_id
 
         self.socket: socket.socket = my_socket
 
-        self._receive_enemy_info_stop_event: threading.Event = threading.Event()
-        self._receive_enemy_info_thread: threading.Thread | None = None
+        self._update_position_information_stop_event: threading.Event | None = threading.Event()
+        self._update_position_information_thread: threading.Thread | None = None
+
+        self.client_id_to_client_position: dict[int, tuple[int, int]] = {}
+        self.client_id_to_enemy_position: dict[int, tuple[int, int]] = {}
 
     @property
-    def enemy_position(self) -> tuple[int, int]:
-        return self.enemy_x, self.enemy_y
+    def player_position(self) -> tuple[int, int]:
+        return self.x, self.y
 
     @property
     def target_position(self) -> tuple[int, int]:
-        return self.target_x, self.target_y
+        return self.client_id_to_client_position[self.id]
 
-    def _receive_enemy_info(self) -> None:
-        while not self._receive_enemy_info_stop_event.is_set():
+    @property
+    def enemy_position(self) -> tuple[int, int]:
+        return self.client_id_to_enemy_position[self.id]
+
+    def __update_position_information(self) -> None:
+        while not self._update_position_information_stop_event.is_set():
             readable, _, _ = select.select([self.socket], [], [], 0.1)
 
-            if readable:
-                enemy_target_str = self.socket.recv(1024).decode(ENCODING)
-                enemy_str, target_str, *_ = enemy_target_str.split(":")
+            if not readable:
+                continue
 
-                enemy_x, enemy_y, *_ = enemy_str.split(",")
-                self.enemy_x = int(enemy_x)
-                self.enemy_y = int(enemy_y)
-
-                target_x, target_y, *_ = target_str.split(",")
-                self.target_x = int(target_x)
-                self.target_y = int(target_y)
-
-    def start_receiving_enemy_info(self) -> None:
-        if self._receive_enemy_info_thread is not None:
-            return
-
-        self._receive_enemy_info_thread = threading.Thread(
-            target=self._receive_enemy_info,
-            name=f"EnemyPosition.receive_enemy_info_thread"
-        )
-        self._receive_enemy_info_thread.start()
-
-    def stop_receiving_enemy_info(self) -> None:
-        self._receive_enemy_info_stop_event.set()
-        self._receive_enemy_info_thread.join()
+            position_information_string = self.socket.recv(2048).decode(ENCODING)
 
 
-def client(server_ip: IPv4Address, port: int = 8888):
+def run_client(server_ip: IPv4Address, port: int = 8888):
     print(f"Connecting to server at address - {server_ip}:{port}")
     my_socket = socket.socket()
     my_socket.connect((str(server_ip), port))
     print(" - done")
 
-    print("Waiting for server to start")
-    msg = my_socket.recv(1024)
-    msg = msg.decode(ENCODING)
-
-    if msg != "Start":
-        print(f"Incorrect start message '{msg}'")
-        exit(1)
-
-    print("Server started")
-
+    print("Setting up pygame")
     pygame.init()
     pygame.display.set_caption("Title")
     window_size = (1280, 720)
     screen = pygame.display.set_mode(window_size)
     clock = pygame.time.Clock()
 
-    player_position = [window_size[0] // 2, window_size[1] // 2]
-    enemy_information = EnemyInformation(my_socket, player_position[0], player_position[1])
-    enemy_information.start_receiving_enemy_info()
+    print("Sending the initial position")
+    initial_position = window_size[0] // 2, window_size[1] // 2
+    initial_position_bytes = f"initial_position:{initial_position[0]},{initial_position[1]}".encode(ENCODING)
+    my_socket.sendall(initial_position_bytes)
 
-    print("Sending initial position")
-    my_socket.sendall(f"Initial Position:{player_position[0]},{player_position[1]}".encode(ENCODING))
+    print("Getting the id from the server")
+    id_str = my_socket.recv(1024).decode(ENCODING)
+    id_str = id_str[:-1]  # Remove the pipe
+    my_id = int(id_str)
 
+    print("Sending the id back to the server")
+    id_bytes = f"{my_id}|".encode(ENCODING)
+    my_socket.sendall(id_bytes)
+
+    print("Creating client object")
+    client = Client(initial_position[0], initial_position[1], my_id, my_socket)
+
+    print("Waiting for start message")
+    start_str = my_socket.recv(1024).decode(ENCODING)
+    if not start_str == "start|":
+        exit(1)
+
+    print("Begin")
     to_break: bool = False
 
     # Main loop
@@ -115,31 +107,34 @@ def client(server_ip: IPv4Address, port: int = 8888):
         pressed = pygame.key.get_pressed()
 
         if pressed[pygame.K_w]:
-            player_position[1] -= 2
+            client.y -= 2
         if pressed[pygame.K_s]:
-            player_position[1] += 2
+            client.y += 2
         if pressed[pygame.K_a]:
-            player_position[0] -= 2
+            client.x -= 2
         if pressed[pygame.K_d]:
-            player_position[0] += 2
+            client.x += 2
 
-        pygame.draw.circle(screen, (255, 255, 255), player_position, 20)
-        pygame.draw.circle(screen, (0, 255, 0), enemy_information.enemy_position, 10)
-        pygame.draw.circle(screen, (255, 0, 0), enemy_information.target_position, 5)
-        pygame.draw.line(screen, (255, 255, 255),
-                         enemy_information.enemy_position, enemy_information.target_position,
-                         2)
+        for other_client_id, other_client_position in client.client_id_to_client_position.items():
+            if other_client_id == client.id:
+                continue
 
-        my_socket.sendall(f"{player_position[0]},{player_position[1]}".encode(ENCODING))
+            other_enemy_position = client.client_id_to_enemy_position[other_client_id]
+
+            pygame.draw.circle(screen, (100, 100, 255), other_client_position, 10)
+            pygame.draw.circle(screen, (255, 100, 100), other_enemy_position, 5)
+            pygame.draw.line(screen, (255, 255, 255), other_client_position, other_enemy_position)
+
+        pygame.draw.circle(screen, (255, 255, 255), client.player_position, 20)
+        pygame.draw.circle(screen, (0, 255, 0), client.enemy_position, 10)
+        pygame.draw.circle(screen, (255, 0, 0), client.target_position, 5)
+        pygame.draw.line(screen, (255, 255, 255), client.enemy_position, client.target_position, 2)
 
         """ABOVE"""
 
         pygame.display.flip()
         clock.tick(60)
 
-    enemy_information.stop_receiving_enemy_info()
-    my_socket.close()
-
 
 if __name__ == "__main__":
-    client(get_my_ip())
+    run_client(get_my_ip())
