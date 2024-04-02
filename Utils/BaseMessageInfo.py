@@ -1,9 +1,10 @@
 import struct
+from enum import Enum
 
 from .Constants import _ENDIANNESS
 
 
-class BaseMessageInfo:
+class BaseMessageInfo(Enum):
     def __new__(cls, value: object, *args, **kwargs):
         obj = object.__new__(cls)
         obj._value_ = value
