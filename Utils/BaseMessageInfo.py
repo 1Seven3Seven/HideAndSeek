@@ -1,23 +1,9 @@
 import struct
-from enum import Enum
 
-_ENDIANNESS = "<"
-
-
-class IndicatorByte:
-    """
-    A special class for the indicator.
-    """
-
-    format_string = f"{_ENDIANNESS}B"
-    size_in_bytes = struct.calcsize(format_string)
-
-    @classmethod
-    def create_bytes(cls, indicator: int) -> bytes:
-        return struct.pack(cls.format_string, indicator)
+from .Constants import _ENDIANNESS
 
 
-class _MessageInfo(Enum):
+class BaseMessageInfo:
     def __new__(cls, value: object, *args, **kwargs):
         obj = object.__new__(cls)
         obj._value_ = value
@@ -55,35 +41,3 @@ class _MessageInfo(Enum):
         """
 
         return struct.calcsize(self.format_string)
-
-
-class ServerMessageInfo(_MessageInfo):
-    # Handling client connections and disconnections (0x0?)
-    CLIENT_SET_ID = 0x01, "I"
-    # CLIENT_TO_DISCONNECT = 0x02, ""
-    # CLIENT_RECONNECT_ACCEPTED = 0x03, ""
-    # CLIENT_RECONNECT_REJECTED = 0x04, ""
-
-    # Transferring map and position data (0x1?)
-    # MAP_DATA_HEADER = 0x11, "II"
-    # STARTING_POSITION = 0x12, "ii"
-
-    # Updating client information (0x02?)
-    CLIENT_NAME_ACCEPTED = 0x21, ""
-    CLIENT_NAME_REJECTED = 0x22, ""
-    CLIENT_NEW_NAME_HEADER = 0x23, "II"
-    CLIENT_CONNECTED_NOTIFICATION = 0x24, "I"
-    CLIENT_DISCONNECTED_NOTIFICATION = 0x25, "I"
-
-    # Misc (0xF?)
-    # START_GAME = 0xF1, ""
-
-
-class ClientMessageInfo(_MessageInfo):
-    # Connecting or disconnecting from a server (0x0?)
-    NEW_CONNECTION_REQUEST = 0x01, ""
-    # RECONNECTION_REQUEST = 0x02, ""
-    DISCONNECT_NOTIFICATION = 0x03, ""
-
-    # Updating the servers information (0x2?)
-    NAME_CHANGE_HEADER = 0x21, "I"
