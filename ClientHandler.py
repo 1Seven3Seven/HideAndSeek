@@ -32,23 +32,11 @@ class ClientHandler(Logger):
 
         self.log("Performing handshake")
 
-        self.log("Waiting for indicator bytes")
+        self.log("Waiting for indicator int")
         try:
-            indicator_bytes = self.socket.recv(
-                IndicatorByte.size_in_bytes
-            )
-        except TimeoutError:
-            self.log("Connection timed out")
-            return False
-
-        self.log("Converting to integer")
-        try:
-            indicator_int, = struct.unpack(
-                IndicatorByte.format_string,
-                indicator_bytes
-            )
-        except struct.error as e:
-            self.log(f"Received error '{e}'")
+            indicator_int = IndicatorByte.read_from_socket(self.socket)
+        except (TimeoutError, struct.error) as e:
+            self.log(f"Received error '{e}' when attempting to read the indicator")
             return False
         self.log(f"Indicator int is {indicator_int}")
 
