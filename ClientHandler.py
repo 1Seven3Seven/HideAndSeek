@@ -59,7 +59,7 @@ class ClientHandler(Logger):
 
         return True
 
-    def disconnect(self) -> None:
+    def disconnect_client(self) -> None:
         """
         Informs the client of the disconnect then closes the socket.
 
