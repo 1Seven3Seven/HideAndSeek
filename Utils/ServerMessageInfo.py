@@ -4,7 +4,7 @@ from .BaseMessageInfo import BaseMessageInfo
 class ServerMessageInfo(BaseMessageInfo):
     # Handling client connections and disconnections (0x0?)
     CLIENT_SET_ID = 0x01, "I"
-    # CLIENT_TO_DISCONNECT = 0x02, ""
+    CLIENT_TO_DISCONNECT = 0x02, ""
     # CLIENT_RECONNECT_ACCEPTED = 0x03, ""
     # CLIENT_RECONNECT_REJECTED = 0x04, ""
 
