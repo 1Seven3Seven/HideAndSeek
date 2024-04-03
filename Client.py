@@ -47,7 +47,7 @@ def main() -> None:
             indicator_byte
         )
     except struct.error as e:
-        print(f"When attempting to unpack received error {e}")
+        print(f"When attempting to unpack received error '{e}'")
         print("Closing socket")
         client_socket.close()
         return
