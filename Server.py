@@ -66,7 +66,7 @@ def main() -> None:
     Logger.log("Server : Closing server socket")
     server_socket.close()
 
-    Logger.log("Server : Joining all handshake threads")
+    Logger.log("Server : Joining all handler threads")
     for client_handler in client_id_to_client_handler.values():
         client_handler.handle_client_thread.join()
 

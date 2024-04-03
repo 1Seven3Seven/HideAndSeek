@@ -23,6 +23,19 @@ class ClientHandler(Logger):
     def log(self, *args, **kwargs):
         super().log(self.prepend, *args, **kwargs)
 
+    def handle_client(self) -> None:
+        self.log("Handler thread started")
+
+        handshake_result = self.perform_handshake()
+
+        if not handshake_result:
+            self.log("Handshake failed, closing socket")
+            self.socket.close()
+            return
+
+        self.log("Handshake successful")
+        return
+
     def start(self) -> None:
         """
         Starts this client handler.
@@ -36,7 +49,7 @@ class ClientHandler(Logger):
         self.handle_client_stop_event.clear()
 
         self.handle_client_thread = threading.Thread(
-            target=self.__handle_client
+            target=self.handle_client
         )
         self.handle_client_thread.start()
 
@@ -85,16 +98,3 @@ class ClientHandler(Logger):
 
         # All done
         return True
-
-    def __handle_client(self) -> None:
-        self.log("Handler thread started")
-
-        handshake_result = self.perform_handshake()
-
-        if not handshake_result:
-            self.log("Handshake failed, closing socket")
-            self.socket.close()
-            return
-
-        self.log("Handshake successful")
-        return
