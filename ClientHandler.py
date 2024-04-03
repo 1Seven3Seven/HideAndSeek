@@ -13,12 +13,16 @@ class ClientHandler(Logger):
         self.socket: socket.socket = client_socket
         self.address: tuple[str, int] = client_address
 
-        self.client_id: int = client_id
+        self._client_id: int = client_id
 
         self.handle_client_stop_event: threading.Event = threading.Event()
         self.handle_client_thread: threading.Thread | None = None
 
         self.__log_prepend: str = f"Client {client_id: 3} :"
+
+    @property
+    def client_id(self) -> int:
+        return self._client_id
 
     def log(self, *args, **kwargs):
         super().log(self.__log_prepend, *args, **kwargs)
@@ -47,7 +51,7 @@ class ClientHandler(Logger):
         self.log("Sending client id to client")
         try:
             self.socket.sendall(
-                ServerMI.CLIENT_SET_ID.create_bytes(self.client_id)
+                ServerMI.CLIENT_SET_ID.create_bytes(self._client_id)
             )
         except OSError as e:
             self.log(f"Received error '{e}'")
