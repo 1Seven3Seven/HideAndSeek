@@ -96,3 +96,15 @@ class ClientHandler(Logger):
             target=self.handle_client
         )
         self.handle_client_thread.start()
+
+    def stop(self) -> None:
+        """
+        Stops this client handler
+        """
+
+        if self.handle_client_thread is None:
+            return
+
+        self.handle_client_stop_event.set()
+        self.handle_client_thread.join()
+        self.handle_client_thread = None
