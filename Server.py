@@ -38,6 +38,13 @@ def accept_new_clients(server_socket: socket.socket, stop_event: threading.Event
     Logger.log("Accept Thread : Stop event set, all finished")
 
 
+def disconnect_all_clients():
+    Logger.log("Server: Disconnecting all clients")
+
+    for client_handler in client_id_to_client_handler.values():
+        client_handler.disconnect_client()
+
+
 def main() -> None:
     Logger.log("Server : Creating and binding socket")
     server_socket = socket.socket()
@@ -58,10 +65,12 @@ def main() -> None:
     except KeyboardInterrupt:
         pass
 
-    Logger.log("Server : Setting stop event")
+    Logger.log("Server : Setting accept thread stop event")
     accept_new_clients_stop_event.set()
     Logger.log("Server : Waiting for accept thread to finish")
     accept_new_clients_thread.join()
+
+    disconnect_all_clients()
 
     Logger.log("Server : Closing server socket")
     server_socket.close()
