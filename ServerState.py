@@ -17,7 +17,7 @@ class ServerState(Logger):
         self.state_updater_stop_event: threading.Event = threading.Event()
         self.state_updater_thread: threading.Thread | None = None
 
-    def perform_handshake(self) -> bool:
+    def __perform_handshake(self) -> bool:
         """
         Performs the handshake with the server.
 
@@ -69,10 +69,10 @@ class ServerState(Logger):
 
         return True
 
-    def state_updater(self) -> None:
+    def __state_updater(self) -> None:
         self.log("State updater thread started")
 
-        handshake_result = self.perform_handshake()
+        handshake_result = self.__perform_handshake()
 
         if not handshake_result:
             self.log("Handshake failed, closing socket")
@@ -90,7 +90,7 @@ class ServerState(Logger):
         self.state_updater_stop_event.clear()
 
         self.state_updater_thread = threading.Thread(
-            target=self.state_updater
+            target=self.__state_updater
         )
         self.state_updater_thread.start()
 
