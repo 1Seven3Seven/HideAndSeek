@@ -27,7 +27,7 @@ class ClientHandler(Logger):
     def log(self, *args, **kwargs):
         super().log(self.__log_prepend, *args, **kwargs)
 
-    def perform_handshake(self) -> bool:
+    def __perform_handshake(self) -> bool:
         """
         Performs the handshake with the client.
 
@@ -59,7 +59,29 @@ class ClientHandler(Logger):
 
         return True
 
-    def handle_client(self) -> None:
+    def disconnect(self) -> None:
+        """
+        Informs the client of the disconnect then closes the socket.
+
+        Also calls the `ClientHandler.stop()` function.
+        """
+
+        self.log("Disconnecting client")
+
+        self.log("Sending disconnect message")
+        try:
+            self.socket.sendall(
+                ServerMI.CLIENT_TO_DISCONNECT.create_bytes()
+            )
+        except OSError as e:
+            self.log(f"Received error '{e}'")
+
+        self.stop()
+
+        self.log("Closing socket")
+        self.socket.close()
+
+    def __handle_client(self) -> None:
         """
         Performs the handshake.
         If the handshake was successful, moves onto handling client messages and updating its state.
@@ -67,7 +89,7 @@ class ClientHandler(Logger):
 
         self.log("Handler thread started")
 
-        handshake_result = self.perform_handshake()
+        handshake_result = self.__perform_handshake()
 
         if not handshake_result:
             self.log("Handshake failed, closing socket")
@@ -75,6 +97,11 @@ class ClientHandler(Logger):
             return
 
         self.log("Handshake successful")
+
+        while self.handle_client_stop_event.is_set():
+            pass
+
+        self.log("Handler thread terminating")
 
     def start(self) -> None:
         """
@@ -89,7 +116,7 @@ class ClientHandler(Logger):
         self.handle_client_stop_event.clear()
 
         self.handle_client_thread = threading.Thread(
-            target=self.handle_client
+            target=self.__handle_client
         )
         self.handle_client_thread.start()
 
@@ -106,3 +133,5 @@ class ClientHandler(Logger):
         self.handle_client_stop_event.set()
         self.handle_client_thread.join()
         self.handle_client_thread = None
+
+        self.log("Client handler thread stopped")
