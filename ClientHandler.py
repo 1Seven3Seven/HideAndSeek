@@ -4,7 +4,7 @@ import threading
 
 from Logger import Logger
 from Utils import ClientMessageInfo as ClientMI
-from Utils import IndicatorByte
+from Utils import IndicatorInt
 from Utils import ServerMessageInfo as ServerMI
 
 
@@ -34,7 +34,7 @@ class ClientHandler(Logger):
 
         self.log("Waiting for indicator int")
         try:
-            indicator_int = IndicatorByte.read_from_socket(self.socket)
+            indicator_int = IndicatorInt.read_from_socket(self.socket)
         except (TimeoutError, struct.error) as e:
             self.log(f"Received error '{e}' when attempting to read the indicator")
             return False
@@ -58,7 +58,7 @@ class ClientHandler(Logger):
     def handle_client(self) -> None:
         """
         Performs the handshake.
-        If the handshake was successful, moves onto handling client massages and updating its state.
+        If the handshake was successful, moves onto handling client messages and updating its state.
         """
 
         self.log("Handler thread started")

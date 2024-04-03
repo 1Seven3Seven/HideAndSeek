@@ -4,7 +4,7 @@ import struct
 from .Constants import _ENDIANNESS
 
 
-class IndicatorByte:
+class IndicatorInt:
     """
     A special class for the indicator.
     """
