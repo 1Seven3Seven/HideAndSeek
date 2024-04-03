@@ -56,6 +56,11 @@ class ClientHandler(Logger):
         return True
 
     def handle_client(self) -> None:
+        """
+        Performs the handshake.
+        If the handshake was successful, moves onto handling client massages and updating its state.
+        """
+
         self.log("Handler thread started")
 
         handshake_result = self.perform_handshake()
@@ -66,7 +71,6 @@ class ClientHandler(Logger):
             return
 
         self.log("Handshake successful")
-        return
 
     def start(self) -> None:
         """
@@ -76,7 +80,7 @@ class ClientHandler(Logger):
         if self.handle_client_thread is not None:
             return
 
-        self.log("Starting client handler")
+        self.log("Starting client handler thread")
 
         self.handle_client_stop_event.clear()
 
@@ -87,11 +91,13 @@ class ClientHandler(Logger):
 
     def stop(self) -> None:
         """
-        Stops this client handler
+        Stops this client handler.
         """
 
         if self.handle_client_thread is None:
             return
+
+        self.log("Stopping client handler thread")
 
         self.handle_client_stop_event.set()
         self.handle_client_thread.join()
