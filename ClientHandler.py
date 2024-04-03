@@ -18,15 +18,14 @@ class ClientHandler(Logger):
         self.handle_client_stop_event: threading.Event = threading.Event()
         self.handle_client_thread: threading.Thread | None = None
 
-        self.prepend: str = f"Client {client_id: 3} :"
+        self.__log_prepend: str = f"Client {client_id: 3} :"
 
     def log(self, *args, **kwargs):
-        super().log(self.prepend, *args, **kwargs)
+        super().log(self.__log_prepend, *args, **kwargs)
 
     def perform_handshake(self) -> bool:
         """
         Performs the handshake with the client.
-        Closes the socket if at any point it fails.
 
         :return: True if completed successfully, False otherwise.
         """
@@ -66,7 +65,6 @@ class ClientHandler(Logger):
             self.log(f"Received error '{e}'")
             return False
 
-        # All done
         return True
 
     def handle_client(self) -> None:
