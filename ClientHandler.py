@@ -98,7 +98,7 @@ class ClientHandler(Logger):
 
         self.log("Handshake successful")
 
-        while self.handle_client_stop_event.is_set():
+        while not self.handle_client_stop_event.is_set():
             pass
 
         self.log("Handler thread terminating")
