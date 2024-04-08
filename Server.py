@@ -34,6 +34,12 @@ def client_updater(task_queue: queue.Queue[Tasks], stop_event: threading.Event) 
         if task == "New Client Connected":
             Logger.log(_prepend, "Grabbing current client list")
             with modify_lock:
+                Logger.log(_prepend, "Removing any 'dead' clients")
+                for client_id in list(client_id_to_handler.keys()):
+                    if not client_id_to_handler[client_id].is_alive:
+                        client_id_to_handler[client_id].stop()
+                        del client_id_to_handler[client_id]
+
                 client_id_tuple = tuple(client_id_to_handler.keys())
                 client_handler_tuple = tuple(client_id_to_handler.values())
 
@@ -110,6 +116,8 @@ def accept_new_clients(soc: socket.socket, stop_event: threading.Event, task_que
             Logger.log(_prepend, f"Client id is {next_client_id}")
 
             client_handler = ClientHandler(next_client_id, client_socket, client_address)
+            client_handler.start()
+
             client_id_to_handler[next_client_id] = client_handler
 
         Logger.log(_prepend, "Sending client id to client")
@@ -164,13 +172,17 @@ def main(ip: IPv4Address, port: int) -> None:
     Logger.log("Joining accept new clients thread")
     accept_new_clients_thread.join()
 
+    Logger.log("Closing server socket")
+    soc.close()
+
     Logger.log("Setting client updater stop event")
     client_updater_stop_event.set()
     Logger.log("Joining client updater thread")
     client_updater_thread.join()
 
-    Logger.log("Closing server socket")
-    soc.close()
+    Logger.log("Stopping all client handlers")
+    for client_handler in client_id_to_handler.values():
+        client_handler.stop()
 
     Logger.log("All done")
 
