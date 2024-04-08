@@ -117,7 +117,10 @@ def main(ip: IPv4Address, port: int) -> None:
     except KeyboardInterrupt:
         pass
 
-    Logger.log("Closing client")
+    Logger.log("Notifying server of disconnect")
+    soc.sendall(
+        ClientMessageInfo.WILL_DISCONNECT.create_bytes()
+    )
 
     # Cleanup
     Logger.log("Setting server update handler stop event")
@@ -125,7 +128,12 @@ def main(ip: IPv4Address, port: int) -> None:
     Logger.log("Joining server update handler thread")
     server_update_handler_thread.join()
 
+    Logger.log("Closing client socket")
+    soc.close()
+
+    Logger.log("All done")
+
 
 if __name__ == "__main__":
-    # main(get_my_ip(), 8888)
-    main("localhost", 8888)
+    main(get_my_ip(), 8888)
+    # main("localhost", 8888)
