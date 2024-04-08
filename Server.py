@@ -66,6 +66,8 @@ def client_updater(task_queue: queue.Queue[Tasks], stop_event: threading.Event) 
                     with modify_lock:
                         del client_id_to_handler[client_id]
 
+                    need_to_re_update = True
+
             if need_to_re_update:
                 task_queue.put("New Client Connected")
 
@@ -106,7 +108,9 @@ def accept_new_clients(soc: socket.socket, stop_event: threading.Event, task_que
 
         with modify_lock:
             Logger.log(_prepend, f"Client id is {next_client_id}")
-            client_id_to_handler[next_client_id] = ClientHandler(next_client_id, client_socket, client_address)
+
+            client_handler = ClientHandler(next_client_id, client_socket, client_address)
+            client_id_to_handler[next_client_id] = client_handler
 
         Logger.log(_prepend, "Sending client id to client")
         client_socket.sendall(
