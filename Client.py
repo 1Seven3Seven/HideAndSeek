@@ -13,9 +13,7 @@ client_id_list: list[int] = []
 def server_update_handler(soc: socket.socket, stop_event: threading.Event):
     global client_id_list
 
-    _prepend = "SUH:"
-
-    Logger.log(_prepend, "Thread started")
+    Logger.log("Thread started")
 
     while not stop_event.is_set():
         readable, _, _ = select.select([soc], [], [], 0.1)
@@ -23,20 +21,20 @@ def server_update_handler(soc: socket.socket, stop_event: threading.Event):
         if not readable:
             continue
 
-        Logger.log(_prepend, "Reading indicator int from socket")
+        Logger.log("Reading indicator int from socket")
         try:
             indicator_int = IndicatorInt.read_from_socket(soc)
         except struct.error:
-            Logger.log(_prepend, "Error unpacking struct, closing socket")
+            Logger.log("Error unpacking struct, closing socket")
             soc.close()
             break
 
         if indicator_int != ServerMessageInfo.CONNECTED_CLIENT_IDS.value:
-            Logger.log(_prepend, f"Incorrect indicator int {indicator_int}, closing socket")
+            Logger.log(f"Incorrect indicator int {indicator_int}, closing socket")
             soc.close()
             break
 
-        Logger.log(_prepend, "Reading the number of client ids from the socket")
+        Logger.log("Reading the number of client ids from the socket")
         connected_client_ids_len_bytes = soc.recv(ServerMessageInfo.CONNECTED_CLIENT_IDS.size_in_bytes)
         try:
             connected_client_ids_len, = struct.unpack(
@@ -44,7 +42,7 @@ def server_update_handler(soc: socket.socket, stop_event: threading.Event):
                 connected_client_ids_len_bytes
             )
         except struct.error:
-            Logger.log(_prepend, "Error unpacking bytes, closing socket")
+            Logger.log("Error unpacking bytes, closing socket")
             soc.close()
             break
 
@@ -56,15 +54,15 @@ def server_update_handler(soc: socket.socket, stop_event: threading.Event):
         try:
             connected_client_ids = struct.unpack(format_str, connected_client_ids_bytes)
         except struct.error:
-            Logger.log(_prepend, "Error unpacking bytes, closing socket")
+            Logger.log("Error unpacking bytes, closing socket")
             soc.close()
             break
 
         client_id_list = list(connected_client_ids)
 
-        Logger.log(_prepend, f"Client id list is now {client_id_list}")
+        Logger.log(f"Client id list is now {client_id_list}")
 
-    Logger.log(_prepend, "Thread exiting")
+    Logger.log("Thread exiting")
 
 
 def main(ip: IPv4Address, port: int) -> None:
