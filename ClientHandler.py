@@ -8,6 +8,12 @@ from Utils import *
 
 
 class ClientHandler(Logger):
+    """
+    A class to manage a single client.
+
+    Maintains a thread to update information being sent from the client.
+    """
+
     def __init__(self, client_id: int, client_socket: socket.socket, client_address: tuple[str, int]):
         self.log(f"Creating client handler for id {client_id} at {client_address[0]}:{client_address[1]}")
 
@@ -64,6 +70,10 @@ class ClientHandler(Logger):
         self.log("Thread terminating")
 
     def start(self) -> None:
+        """
+        Starts the internal thread to handle any messages received from the client.
+        """
+
         if self._handler_thread is not None:
             return
 
@@ -77,6 +87,10 @@ class ClientHandler(Logger):
         self._handler_thread.start()
 
     def stop(self) -> None:
+        """
+        Stops the internal thread to handle any messages received from the client.
+        """
+
         if self._handler_thread is None:
             return
 
