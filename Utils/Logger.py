@@ -7,4 +7,9 @@ class Logger:
     @classmethod
     def log(cls, *args, **kwargs):
         with cls.lock:
-            print(*args, **kwargs)
+            thread_name = threading.current_thread().name
+
+            if thread_name == "MainThread":
+                print(*args, **kwargs)
+            else:
+                print(f"{thread_name}:", *args, **kwargs)
