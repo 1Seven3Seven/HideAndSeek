@@ -29,16 +29,16 @@ def server_update_handler(soc: socket.socket, stop_event: threading.Event):
             soc.close()
             break
 
-        if indicator_int != ServerMessageInfo.CONNECTED_CLIENT_IDS.value:
-            Logger.log(f"Incorrect indicator int {indicator_int}, closing socket")
+        if indicator_int != ServerMessageInfo.CONNECTED_CLIENT_IDS_HEADER.value:
+            Logger.log(f"Incorrect indicator int {hex(indicator_int)}, closing socket")
             soc.close()
             break
 
         Logger.log("Reading the number of client ids from the socket")
-        connected_client_ids_len_bytes = soc.recv(ServerMessageInfo.CONNECTED_CLIENT_IDS.size_in_bytes)
+        connected_client_ids_len_bytes = soc.recv(ServerMessageInfo.CONNECTED_CLIENT_IDS_HEADER.size_in_bytes)
         try:
             connected_client_ids_len, = struct.unpack(
-                ServerMessageInfo.CONNECTED_CLIENT_IDS.format_string,
+                ServerMessageInfo.CONNECTED_CLIENT_IDS_HEADER.format_string,
                 connected_client_ids_len_bytes
             )
         except struct.error:
@@ -91,7 +91,7 @@ def main(ip: IPv4Address, port: int) -> None:
         return
 
     if indicator_int != ServerMessageInfo.CLIENT_ID.value:
-        Logger.log(f"Incorrect indicator int {indicator_int}, closing socket")
+        Logger.log(f"Incorrect indicator int {hex(indicator_int)}, closing socket")
         soc.close()
         return
 
