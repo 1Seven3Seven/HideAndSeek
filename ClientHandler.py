@@ -1,9 +1,12 @@
+import queue
 import socket
 import struct
 import threading
 
 import select
 
+from UpdaterTask import UpdaterTask
+from UpdaterTaskTypes import UpdaterTaskTypes
 from Utils import *
 
 
@@ -14,7 +17,17 @@ class ClientHandler(Logger):
     Maintains a thread to update information being sent from the client.
     """
 
-    def __init__(self, client_id: int, client_socket: socket.socket, client_address: tuple[str, int]):
+    def __init__(self,
+                 client_id: int,
+                 client_socket: socket.socket, client_address: tuple[str, int],
+                 updater_queue: queue.Queue[UpdaterTask]):
+        """
+        :param client_id: The id of the client to be handled.
+        :param client_socket: The socket connection to the client.
+        :param client_address: The address of the client.
+        :param updater_queue: The queue to put tasks in pertaining information to be sent to other clients.
+        """
+
         self.log(f"Creating client handler for id {client_id} at {client_address[0]}:{client_address[1]}")
 
         self.client_id: int = client_id
@@ -23,6 +36,8 @@ class ClientHandler(Logger):
         self.address: tuple[str, int] = client_address
 
         self._is_alive: bool = True
+
+        self.updater_queue: queue.Queue[UpdaterTask] = updater_queue
 
         self._handler_stop_event: threading.Event = threading.Event()
         self._handler_thread: threading.Thread | None = None
@@ -42,6 +57,8 @@ class ClientHandler(Logger):
         Handles any messages being sent to the server from the client.
         """
 
+        Logger.log("Thread started")
+
         while not self._handler_stop_event.is_set():
             readable, _, _ = select.select([self.socket], [], [], 0.1)
 
@@ -51,21 +68,22 @@ class ClientHandler(Logger):
             try:
                 indicator_int = IndicatorInt.read_from_socket(self.socket)
             except (OSError, struct.error) as e:
-                self.log(f"Received error '{e}', closing socket")
-                self.socket.close()
+                self.log(f"Received error '{e}'")
                 break
 
             if indicator_int == ClientMessageInfo.WILL_DISCONNECT.value:
-                self.log("Client will disconnect, closing socket")
-                self.socket.close()
-                self._is_alive = False
+                self.log("Client will disconnect")
                 break
 
             else:
-                self.log(f"Received unknown/unhandled indicator int {hex(indicator_int)}, closing socket")
-                self.socket.close()
-                self._is_alive = False
+                self.log(f"Received unknown/unhandled indicator int {hex(indicator_int)}")
                 break
+
+        Logger.log("Closing socket")
+        self.socket.close()
+        self._is_alive = False
+
+        self.updater_queue.put(UpdaterTask(UpdaterTaskTypes.NUM_CLIENTS_CHANGED))
 
         self.log("Thread terminating")
 
