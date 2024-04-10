@@ -1,86 +1,17 @@
-import queue
 import socket
 import struct
 import threading
 from ipaddress import IPv4Address
-from typing import Literal
 
 import select
 
-from ClientHandler import ClientHandler
+from ClientHandlerManager import ClientHandlerManager
 from Utils import *
 
-Tasks = Literal["New Client Connected"]
 
-modify_lock: threading.Lock = threading.Lock()
-
-client_id_to_handler: dict[int, ClientHandler] = {}
-next_client_id = 1
-
-
-def client_updater(task_queue: queue.Queue[Tasks], stop_event: threading.Event) -> None:
-    Logger.log("Thread started")
-
-    while not stop_event.is_set():
-        try:
-            task = task_queue.get(timeout=0.1)
-        except queue.Empty:
-            continue
-
-        Logger.log(f"Received task '{task}'")
-
-        if task == "New Client Connected":
-            Logger.log("Grabbing current client list")
-            with modify_lock:
-                Logger.log("Removing any 'dead' clients")
-                for client_id in list(client_id_to_handler.keys()):
-                    if not client_id_to_handler[client_id].is_alive:
-                        client_id_to_handler[client_id].stop()
-                        del client_id_to_handler[client_id]
-
-                client_id_tuple = tuple(client_id_to_handler.keys())
-                client_handler_tuple = tuple(client_id_to_handler.values())
-
-            len_client_id_tuple = len(client_id_tuple)
-
-            Logger.log("Creating bytes to send")
-            header_bytes_to_send = ServerMessageInfo.CONNECTED_CLIENT_IDS.create_bytes(
-                len_client_id_tuple
-            )
-
-            body_bytes_to_send = struct.pack(
-                "I" * len_client_id_tuple,
-                *client_id_tuple
-            )
-
-            bytes_to_send = header_bytes_to_send + body_bytes_to_send
-
-            Logger.log("Sending bytes")
-            need_to_re_update = False
-
-            client_handler: ClientHandler
-            client_id: int
-            for client_handler, client_id in zip(client_handler_tuple, client_id_tuple):
-                try:
-                    client_handler.socket.sendall(bytes_to_send)
-                except OSError as e:
-                    Logger.log(f"When sending to client id {client_id}, received error '{e}'")
-                    Logger.log("Closing socket and removing client")
-                    client_handler.socket.close()
-                    with modify_lock:
-                        del client_id_to_handler[client_id]
-
-                    need_to_re_update = True
-
-            if need_to_re_update:
-                task_queue.put("New Client Connected")
-
-        else:
-            Logger.log(f"Unknown task")
-
-
-def accept_new_clients(soc: socket.socket, stop_event: threading.Event, task_queue: queue.Queue[Tasks]) -> None:
-    global next_client_id
+def accept_new_clients(soc: socket.socket, stop_event: threading.Event,
+                       client_handler_manager: ClientHandlerManager) -> None:
+    next_client_id = 1
 
     Logger.log("Thread started")
 
@@ -108,23 +39,19 @@ def accept_new_clients(soc: socket.socket, stop_event: threading.Event, task_que
 
         Logger.log("Correct indicator int")
 
-        with modify_lock:
-            Logger.log(f"Client id is {next_client_id}")
+        Logger.log(f"Sending client id {next_client_id} to client")
+        try:
+            client_socket.sendall(
+                ServerMessageInfo.CLIENT_ID.create_bytes(next_client_id)
+            )
+        except OSError as e:
+            Logger.log(f"Received error '{e}'")
 
-            client_handler = ClientHandler(next_client_id, client_socket, client_address)
-            client_handler.start()
-
-            client_id_to_handler[next_client_id] = client_handler
-
-        Logger.log("Sending client id to client")
-        client_socket.sendall(
-            ServerMessageInfo.CLIENT_ID.create_bytes(next_client_id)
-        )
+        client_handler_manager.handle_client(next_client_id, client_socket, client_address)
 
         next_client_id += 1
 
         Logger.log("Adding notify task")
-        task_queue.put("New Client Connected")
 
 
 def main(ip: IPv4Address, port: int) -> None:
@@ -135,16 +62,9 @@ def main(ip: IPv4Address, port: int) -> None:
     Logger.log("Listening for client connections")
     soc.listen()
 
-    # Setting up the client updater thread
-
-    client_updater_task_queue: queue.Queue[Tasks] = queue.Queue()
-    client_updater_stop_event = threading.Event()
-
-    client_updater_thread = threading.Thread(
-        target=client_updater,
-        args=(client_updater_task_queue, client_updater_stop_event)
-    )
-    client_updater_thread.start()
+    # Setting up the client handler manager
+    client_handler_manager = ClientHandlerManager()
+    client_handler_manager.start()
 
     # Setting up the accept new clients thread
 
@@ -152,7 +72,7 @@ def main(ip: IPv4Address, port: int) -> None:
 
     accept_new_clients_thread = threading.Thread(
         target=accept_new_clients,
-        args=(soc, accept_new_clients_stop_event, client_updater_task_queue)
+        args=(soc, accept_new_clients_stop_event, client_handler_manager)
     )
     accept_new_clients_thread.start()
 
@@ -171,14 +91,8 @@ def main(ip: IPv4Address, port: int) -> None:
     Logger.log("Closing server socket")
     soc.close()
 
-    Logger.log("Setting client updater stop event")
-    client_updater_stop_event.set()
-    Logger.log("Joining client updater thread")
-    client_updater_thread.join()
-
-    Logger.log("Stopping all client handlers")
-    for client_handler in client_id_to_handler.values():
-        client_handler.stop()
+    Logger.log("Shutting down client handler manager")
+    client_handler_manager.shutdown()
 
     Logger.log("All done")
 
