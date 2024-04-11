@@ -65,15 +65,15 @@ def server_update_handler(soc: socket.socket, stop_event: threading.Event):
     Logger.log("Thread exiting")
 
 
-def main(ip: IPv4Address, port: int) -> None:
-    Logger.log(f"Connecting to server at address {ip}:{port}")
+def connect(ip: IPv4Address, port: int) -> tuple[socket.socket, int] | None:
+    Logger.log(f"Attempting connection to server at address {ip}:{port}")
     soc = socket.socket()
     soc.settimeout(2)
     try:
         soc.connect((str(ip), port))
     except TimeoutError:
         Logger.log("Connection attempt timed out")
-        return
+        return None
     Logger.log("Connection successful")
     soc.settimeout(None)
 
@@ -82,24 +82,49 @@ def main(ip: IPv4Address, port: int) -> None:
         ClientMessageInfo.NEW_CONNECTION_REQUEST.create_bytes()
     )
 
-    Logger.log("Receiving client id")
+    Logger.log("Reading indicator int")
     try:
         indicator_int = IndicatorInt.read_from_socket(soc)
-    except struct.error:
-        Logger.log("Error unpacking struct, closing socket")
+    except (OSError, struct.error) as e:
+        Logger.log(f"Received error '{e}', closing socket")
         soc.close()
-        return
+        return None
 
     if indicator_int != ServerMessageInfo.CLIENT_ID.value:
         Logger.log(f"Incorrect indicator int {hex(indicator_int)}, closing socket")
         soc.close()
+        return None
+
+    Logger.log("Reading client id")
+    try:
+        client_id_bytes = soc.recv(ServerMessageInfo.CLIENT_ID.size_in_bytes)
+    except OSError as e:
+        Logger.log(f"Received error '{e}', closing socket")
+        soc.close()
+        return None
+
+    try:
+        client_id, = struct.unpack(
+            ServerMessageInfo.CLIENT_ID.format_string, client_id_bytes
+        )
+    except struct.error as e:
+        Logger.log(f"Received error '{e}', closing socket")
+        soc.close()
+        return None
+
+    Logger.log(f"Received client id {client_id}")
+
+    return soc, client_id
+
+
+def main(ip: IPv4Address, port: int) -> None:
+    result = connect(ip, port)
+
+    if result is None:
+        Logger.log("Error connecting to server")
         return
 
-    client_id_bytes = soc.recv(ServerMessageInfo.CLIENT_ID.size_in_bytes)
-    client_id, = struct.unpack(
-        ServerMessageInfo.CLIENT_ID.format_string, client_id_bytes
-    )
-    Logger.log(f"Received client id {client_id}")
+    soc, client_id = result
 
     Logger.log("Starting server update handler thread")
     server_update_handler_stop_event = threading.Event()
